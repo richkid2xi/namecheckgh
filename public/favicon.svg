@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Outer glowing background circle -->
+  <circle cx="16" cy="16" r="15" fill="#0d0d0d" stroke="url(#tealGradient)" stroke-width="2" />
+  
+  <!-- Subtle inner neon accent circle -->
+  <circle cx="16" cy="16" r="12" stroke="#00c896" stroke-opacity="0.15" stroke-width="1" />
+
+  <!-- Magnifying glass / Search icon inside -->
+  <!-- Search loop -->
+  <circle cx="14" cy="14" r="5" stroke="url(#tealGradient)" stroke-width="2.5" stroke-linecap="round" />
+  <!-- Handle -->
+  <path d="M18 18L23 23" stroke="#00c896" stroke-width="2.5" stroke-linecap="round" />
+  <!-- Spark/Dot -->
+  <circle cx="21" cy="11" r="1" fill="#00e5b0" />
+
+  <defs>
+    <linearGradient id="tealGradient" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#00e5b0" />
+      <stop offset="100%" stop-color="#00c896" />
+    </linearGradient>
+  </defs>
+</svg>
