@@ -1,26 +1,22 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import http from 'http';
-import https from 'https';
 
 export const config = {
   maxDuration: 10
 };
 
-// Create kept-alive shared client for sub-second handshake operations
+// Create standard optimized client without keep-alive to prevent AWS Lambda frozen socket hangs
 const client = axios.create({
   timeout: 8000,
-  httpAgent: new http.Agent({ keepAlive: true }),
-  httpsAgent: new https.Agent({ keepAlive: true }),
   maxRedirects: 3,
   decompress: true
 });
 
-// Cache for warm serverless execution to make paginated queries sub-millisecond fast!
+// Cache for warm serverless execution to make identical queries sub-millisecond fast!
 const searchCache = new Map();
 
 export default async function handler(req, res) {
-  // Set Cache-Control and protection headers immediately
+  // Set CORS and security headers immediately
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -57,7 +53,7 @@ export default async function handler(req, res) {
 
   const cacheKey = `${sanitizedName.toLowerCase()}_${searchType}`;
 
-  // If we have cached results for this query during warm execution, return paginated results instantly!
+  // If we have cached results for this query during warm execution, return results instantly!
   if (searchCache.has(cacheKey)) {
     console.log(`[NAMECHECKGH] Cache hit for: "${sanitizedName}"`);
     const results = searchCache.get(cacheKey);
@@ -118,7 +114,6 @@ export default async function handler(req, res) {
             "User-Agent": userAgent,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
-            "Accept-Encoding": "gzip, deflate, br",
             "Connection": "keep-alive"
           },
           timeout: 8000
@@ -166,10 +161,7 @@ export default async function handler(req, res) {
             "HX-Target": "search-results",
             "HX-Trigger": "saveRequest",
             "Origin": "https://rgdonline.gegov.gov.gh",
-            "Referer": "https://rgdonline.gegov.gov.gh/orc-app/",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin"
+            "Referer": "https://rgdonline.gegov.gov.gh/orc-app/"
           },
           timeout: 8000
         });
