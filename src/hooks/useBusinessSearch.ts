@@ -91,6 +91,15 @@ export function useBusinessSearch() {
         }
       } catch (err) {
         console.error('Business search failed:', err);
+
+        // If Vercel kills a cold-starting serverless function (504 Gateway Timeout), fetch throws a Network Error.
+        // We gracefully intercept this on the first attempt and retry (which hits the now-warm container and succeeds)!
+        if (!isRetry) {
+          toast.loading('Waking up search servers — retrying...', { id: 'orc-search-toast' });
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          return await executeFetch(true);
+        }
+
         setError('Network error — check your connection');
         toast.error('Network error — check your connection', { id: 'orc-search-toast' });
         return false;

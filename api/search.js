@@ -7,7 +7,7 @@ export const config = {
 
 // Create standard optimized client without keep-alive to prevent AWS Lambda frozen socket hangs
 const client = axios.create({
-  timeout: 8000,
+  timeout: 6500,
   maxRedirects: 3,
   decompress: true
 });
@@ -116,7 +116,7 @@ export default async function handler(req, res) {
             "Accept-Language": "en-US,en;q=0.9",
             "Connection": "keep-alive"
           },
-          timeout: 8000
+          timeout: 6500
         });
 
         const $ = cheerio.load(getResponse.data);
@@ -163,7 +163,7 @@ export default async function handler(req, res) {
             "Origin": "https://rgdonline.gegov.gov.gh",
             "Referer": "https://rgdonline.gegov.gov.gh/orc-app/"
           },
-          timeout: 8000
+          timeout: 6500
         });
 
         if (postResponse.status !== 200) {
