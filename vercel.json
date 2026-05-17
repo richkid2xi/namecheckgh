@@ -4,7 +4,7 @@
       "maxDuration": 10
     }
   },
-  "regions": ["lhr"],
+  "regions": ["lhr1"],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" }
   ],
