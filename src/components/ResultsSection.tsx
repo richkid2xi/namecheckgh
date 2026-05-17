@@ -183,7 +183,7 @@ export default function ResultsSection({
 
       {/* 5. TAKEN State */}
       {!loading && !error && result && result.status === 'taken' && (
-        <div className="max-w-4xl mx-auto flex flex-col gap-6">
+        <div className="w-full flex flex-col gap-6 animate-fade-in-up">
           {/* Header card */}
           <motion.div
             initial="hidden"
@@ -222,7 +222,7 @@ export default function ResultsSection({
             </div>
           )}
 
-          {/* Result cards (Listed two inline - grid system) */}
+          {/* Result cards (Listed two inline - grid system aligned horizontally) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {paginatedResults.map((record, i) => (
               <motion.div
@@ -230,12 +230,12 @@ export default function ResultsSection({
                 initial="hidden"
                 animate="visible"
                 variants={cardVariants}
-                className="bg-[#161616] border border-[#262626] rounded-xl p-5 flex flex-col justify-between gap-4 hover:border-accent/40 transition-colors"
+                className="bg-[#161616] border border-[#262626] rounded-xl p-5 flex flex-row items-center justify-between gap-4 hover:border-accent/40 transition-colors"
               >
                 <span className="font-semibold text-[#f0f0f0] text-[14px] leading-snug tracking-tight">
                   {record.businessName}
                 </span>
-                <span className="px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold bg-[#1e1e1e] border border-[#262626] text-[#737373] uppercase tracking-wider self-start flex-shrink-0">
+                <span className="px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold bg-[#1e1e1e] border border-[#262626] text-[#737373] uppercase tracking-wider flex-shrink-0">
                   {record.businessType}
                 </span>
               </motion.div>

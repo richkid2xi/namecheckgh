@@ -1,4 +1,10 @@
 {
+  "functions": {
+    "api/search.js": {
+      "maxDuration": 10
+    }
+  },
+  "regions": ["lhr"],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" }
   ],
