@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import type { SearchResult } from '../hooks/useBusinessSearch';
 
@@ -6,7 +7,7 @@ interface ResultsSectionProps {
   loading: boolean;
   error: string | null;
   hasSearched: boolean;
-  onSearch: (name: string) => void;
+  onSearch: (name: string, filter?: string) => void;
   lastSearched: string;
 }
 
@@ -21,14 +22,50 @@ export default function ResultsSection({
   error,
   hasSearched,
   onSearch,
-  lastSearched
+  lastSearched,
 }: ResultsSectionProps) {
-  
-  // 1. IDLE (hasSearched is false)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedType, setSelectedType] = useState('ALL');
+
+  // Extract all unique business types from results for dynamic filtering
+  const uniqueTypes = result
+    ? ['ALL', ...Array.from(new Set(result.results.map(r => r.businessType.toUpperCase())))]
+    : ['ALL'];
+
+  // Automatically reset states back to defaults whenever a new search result is loaded
+  useEffect(() => {
+    setCurrentPage(1);
+    setSelectedType('ALL');
+  }, [result]);
+
+  // Automatically reset page back to 1 if the business type filter shifts
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedType]);
+
   if (!hasSearched) return null;
 
+  // Filter results by selected business type
+  const filteredResults = result
+    ? result.results.filter(
+        r => selectedType === 'ALL' || r.businessType.toUpperCase() === selectedType
+      )
+    : [];
+
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(filteredResults.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedResults = filteredResults.slice(startIndex, startIndex + itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setTimeout(() => {
+      document.getElementById('results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
+
   return (
-    <section id="results" className="max-w-content mx-auto px-6 lg:px-10 py-12">
+    <section id="results" className="max-w-content mx-auto px-6 lg:px-10 py-12 scroll-mt-24">
       {/* Divider */}
       <div className="h-px bg-[#1e1e1e] mb-10" />
 
@@ -39,16 +76,17 @@ export default function ResultsSection({
             {[1, 2].map((i) => (
               <div
                 key={i}
-                className="bg-[#161616] border border-[#262626] rounded-xl p-6 flex flex-col gap-4"
+                className="bg-[#161616] border border-[#262626] rounded-xl p-6 flex flex-col gap-4 animate-pulse"
               >
                 {/* Wide shimmer bar */}
-                <div className="h-5 w-3/4 rounded-md shimmer-bar" />
+                <div className="h-5 w-3/4 rounded-md shimmer-bar bg-white/5" />
                 {/* Narrow shimmer bar */}
-                <div className="h-4 w-1/3 rounded-md shimmer-bar" />
+                <div className="h-4 w-1/3 rounded-md shimmer-bar bg-white/5" />
               </div>
             ))}
           </div>
-          <span className="text-sm text-[#737373] animate-pulse-slow">
+          <span className="text-sm text-[#737373] animate-pulse-slow flex items-center gap-2">
+            <span className="material-icons text-[16px] animate-spin">refresh</span>
             Scanning ORC Registry...
           </span>
         </div>
@@ -108,7 +146,6 @@ export default function ResultsSection({
           variants={cardVariants}
           className="max-w-xl mx-auto bg-[#161616] border border-[#262626] border-l-[3px] border-l-[#22c55e] rounded-xl p-6 flex flex-col gap-5"
         >
-          {/* Top section */}
           <div className="flex gap-3">
             <span className="material-icons text-[#22c55e] text-[24px] flex-shrink-0">check_circle</span>
             <div className="flex flex-col gap-1">
@@ -119,7 +156,6 @@ export default function ResultsSection({
             </div>
           </div>
 
-          {/* Middle section */}
           <div className="pl-9 py-4 border-y border-[#262626]/55 flex flex-col gap-1.5">
             <span className="text-[10px] font-bold uppercase tracking-wider text-[#737373]">
               SEARCHED NAME
@@ -129,7 +165,6 @@ export default function ResultsSection({
             </span>
           </div>
 
-          {/* Bottom section */}
           <div className="pl-9 flex flex-col gap-3">
             <p className="text-xs text-[#737373] leading-relaxed">
               Availability does not guarantee approval. Verify officially at ORC Ghana before proceeding.
@@ -148,7 +183,7 @@ export default function ResultsSection({
 
       {/* 5. TAKEN State */}
       {!loading && !error && result && result.status === 'taken' && (
-        <div className="max-w-2xl mx-auto flex flex-col gap-6">
+        <div className="max-w-4xl mx-auto flex flex-col gap-6">
           {/* Header card */}
           <motion.div
             initial="hidden"
@@ -165,32 +200,88 @@ export default function ResultsSection({
             </div>
           </motion.div>
 
-          {/* Result cards (max 10) */}
-          <div className="flex flex-col gap-3">
-            {result.results.slice(0, 10).map((record, i) => (
+          {/* Business Type Filter Selector */}
+          {uniqueTypes.length > 2 && (
+            <div className="flex flex-wrap gap-2 items-center bg-[#111111] border border-[#1e1e1e] p-3 rounded-xl">
+              <span className="text-[10px] text-[#737373] font-bold uppercase tracking-wider mr-1 pl-1">
+                Filter by Type:
+              </span>
+              {uniqueTypes.map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setSelectedType(type)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${
+                    selectedType === type
+                      ? 'border-accent bg-accent/10 text-accent font-bold shadow-[0_0_0_2px_rgba(0,200,150,0.1)]'
+                      : 'border-[#262626] bg-[#161616] text-[#737373] hover:border-[#3a3a3a] hover:text-[#f0f0f0]'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Result cards (Listed two inline - grid system) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {paginatedResults.map((record, i) => (
               <motion.div
                 key={i}
                 initial="hidden"
                 animate="visible"
                 variants={cardVariants}
-                className="bg-[#161616] border border-[#262626] rounded-xl p-4 flex items-center justify-between gap-4"
+                className="bg-[#161616] border border-[#262626] rounded-xl p-5 flex flex-col justify-between gap-4 hover:border-accent/40 transition-colors"
               >
-                <span className="font-semibold text-[#f0f0f0] text-[14px] leading-snug tracking-tight truncate">
+                <span className="font-semibold text-[#f0f0f0] text-[14px] leading-snug tracking-tight">
                   {record.businessName}
                 </span>
-                <span className="px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold bg-[#1e1e1e] border border-[#262626] text-[#737373] uppercase tracking-wider flex-shrink-0">
+                <span className="px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold bg-[#1e1e1e] border border-[#262626] text-[#737373] uppercase tracking-wider self-start flex-shrink-0">
                   {record.businessType}
                 </span>
               </motion.div>
             ))}
-
-            {/* If more than 10 exist */}
-            {result.count > 10 && (
-              <p className="text-xs text-[#737373] text-center py-2 font-medium">
-                Showing 10 of {result.count} results — refine your search
-              </p>
-            )}
           </div>
+
+          {/* Pagination control bar */}
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 pt-4 border-t border-[#1e1e1e]">
+              <p className="text-xs text-[#737373] font-medium">
+                Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredResults.length)} of {filteredResults.length} results
+              </p>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  disabled={currentPage === 1}
+                  onClick={() => handlePageChange(Math.max(currentPage - 1, 1))}
+                  className="p-2 rounded-lg border border-[#262626] bg-[#161616] text-[#737373] hover:text-[#f0f0f0] hover:border-accent disabled:opacity-30 disabled:hover:border-[#262626] disabled:hover:text-[#737373] transition-all flex items-center justify-center"
+                >
+                  <span className="material-icons text-[18px]">chevron_left</span>
+                </button>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => handlePageChange(page)}
+                    className={`w-9 h-9 rounded-lg border font-bold text-xs transition-all flex items-center justify-center ${
+                      currentPage === page
+                        ? 'border-accent bg-accent/10 text-accent font-bold shadow-[0_0_0_2px_rgba(0,200,150,0.15)]'
+                        : 'border-[#262626] bg-[#161616] text-[#737373] hover:text-[#f0f0f0] hover:border-accent'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+
+                <button
+                  disabled={currentPage === totalPages}
+                  onClick={() => handlePageChange(Math.min(currentPage + 1, totalPages))}
+                  className="p-2 rounded-lg border border-[#262626] bg-[#161616] text-[#737373] hover:text-[#f0f0f0] hover:border-accent disabled:opacity-30 disabled:hover:border-[#262626] disabled:hover:text-[#737373] transition-all flex items-center justify-center"
+                >
+                  <span className="material-icons text-[18px]">chevron_right</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Bottom helper text */}
           <p className="text-xs text-[#737373] text-center italic mt-2">

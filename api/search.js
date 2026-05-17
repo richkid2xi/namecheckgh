@@ -17,7 +17,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { name } = req.query;
+  const { name, searchType: querySearchType } = req.query;
 
   if (!name || name.trim().length < 2) {
     return res.status(400).json({ error: "Enter a valid business name" });
@@ -29,6 +29,11 @@ export default async function handler(req, res) {
   if (sanitizedName.length < 2) {
     return res.status(400).json({ error: "Enter a valid business name" });
   }
+
+  // Determine searchType parameter (default to cn if not matching)
+  const validTypes = ['exact', 'sw', 'ew', 'cn'];
+  const searchType = validTypes.includes(querySearchType) ? querySearchType : 'cn';
+  console.log(`[NAMECHECKGH] Filter: ${searchType}`);
 
   console.log(`[NAMECHECKGH] Searching for: "${sanitizedName}"`);
 
@@ -78,7 +83,7 @@ export default async function handler(req, res) {
     const params = new URLSearchParams();
     params.append('_csrf', csrfToken);
     params.append('bizName', sanitizedName);
-    params.append('searchType', 'cn');
+    params.append('searchType', searchType);
 
     const postResponse = await axios.post(postUrl, params.toString(), {
       headers: {
@@ -156,12 +161,23 @@ export default async function handler(req, res) {
 
     const hasNoDataText = postResponse.data.toLowerCase().includes('no data found') || postResponse.data.trim() === '';
 
+    // Pagination calculations
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 10);
+    const startIndex = (page - 1) * limit;
+    const paginated = results.slice(startIndex, startIndex + limit);
+    const totalPages = Math.ceil(results.length / limit);
+
     if (results.length === 0 || hasNoDataText) {
       console.log('[NAMECHECKGH] Results found: 0');
       return res.status(200).json({
         searched: sanitizedName,
+        searchType: searchType,
         status: "available",
         count: 0,
+        page: page,
+        totalPages: 0,
+        limit: limit,
         results: [],
         source: "ORC Ghana Registry"
       });
@@ -170,9 +186,13 @@ export default async function handler(req, res) {
     console.log(`[NAMECHECKGH] Results found: ${results.length}`);
     return res.status(200).json({
       searched: sanitizedName,
+      searchType: searchType,
       status: "taken",
       count: results.length,
-      results: results,
+      page: page,
+      totalPages: totalPages,
+      limit: limit,
+      results: paginated,
       source: "ORC Ghana Registry"
     });
 

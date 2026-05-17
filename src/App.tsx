@@ -26,9 +26,9 @@ export default function App() {
   const supportRef = useRef<HTMLElement | null>(null);
   const resultsRef = useRef<HTMLDivElement | null>(null);
 
-  const handleSearch = async (name: string) => {
+  const handleSearch = async (name: string, filter = 'contains') => {
     setLastSearched(name);
-    await searchBusiness(name);
+    await searchBusiness(name, filter);
   };
 
   // Scroll to results automatically when a search is in progress or completed

@@ -3,7 +3,7 @@ import IllustrationCard from './IllustrationCard';
 import TypingCursor from './TypingCursor';
 
 interface HeroSectionProps {
-  onSearch: (query: string) => void;
+  onSearch: (query: string, filter: string) => void;
   isSearching: boolean;
   recentSearches: string[];
   clearRecent: () => void;
@@ -17,7 +17,15 @@ export default function HeroSection({
 }: HeroSectionProps) {
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
+  const [filter, setFilter] = useState('cn');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const FILTER_OPTIONS = [
+    { value: 'cn', label: 'Contains' },
+    { value: 'exact', label: 'Exact Match' },
+    { value: 'sw', label: 'Starts With' },
+    { value: 'ew', label: 'Ends With' },
+  ];
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -27,7 +35,7 @@ export default function HeroSection({
     e.preventDefault();
     const name = query.trim();
     if (name && !isSearching) {
-      onSearch(name);
+      onSearch(name, filter);
     }
   };
 
@@ -130,9 +138,28 @@ export default function HeroSection({
                 </button>
               </div>
 
+              {/* Search Filter Modes Selector */}
+              <div className="flex flex-wrap gap-2 mt-1 animate-fade-in-up">
+                {FILTER_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    disabled={isSearching}
+                    onClick={() => setFilter(opt.value)}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${
+                      filter === opt.value
+                        ? 'border-accent bg-accent/10 text-accent font-bold shadow-[0_0_0_2px_rgba(0,200,150,0.15)]'
+                        : 'border-[#262626] bg-[#0c0c0c] text-text-muted hover:border-[#3a3a3a] hover:text-text-secondary'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Recent Searches chips */}
               {recentSearches && recentSearches.length > 0 && (
-                <div className="flex flex-wrap gap-2 items-center mt-1 animate-fade-in-up">
+                <div className="flex flex-wrap gap-2 items-center mt-2 animate-fade-in-up">
                   <span className="text-[10px] text-text-muted font-bold uppercase tracking-wider">Recent:</span>
                   {recentSearches.map((item, idx) => (
                     <button
@@ -141,7 +168,7 @@ export default function HeroSection({
                       disabled={isSearching}
                       onClick={() => {
                         setQuery(item);
-                        onSearch(item);
+                        onSearch(item, filter);
                       }}
                       className="px-2.5 py-1 text-[11px] font-semibold rounded-lg bg-white/3 border border-[#262626] text-text-secondary hover:bg-white/5 hover:border-[#363636] hover:text-text-primary transition-all flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                     >

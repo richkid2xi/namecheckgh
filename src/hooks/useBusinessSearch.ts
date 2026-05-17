@@ -31,7 +31,7 @@ export function useBusinessSearch() {
     }
   }, []);
 
-  const searchBusiness = async (name: string) => {
+  const searchBusiness = async (name: string, filter = 'contains') => {
     const trimmed = name.trim();
     if (!trimmed || trimmed.length < 2) {
       toast.error('Please enter a business name');
@@ -43,15 +43,21 @@ export function useBusinessSearch() {
     setResult(null);
     setHasSearched(true);
 
+    // Show persistent warning toast to prompt patience for slow live scrapers
+    toast.loading('Querying the live ORC registry... This will take a few seconds, please be patient.', {
+      id: 'orc-search-toast'
+    });
+
     try {
       const [response] = await Promise.all([
-        fetch(`/api/search?name=${encodeURIComponent(trimmed)}`),
+        fetch(`/api/search?name=${encodeURIComponent(trimmed)}&searchType=${filter}`),
         new Promise((resolve) => setTimeout(resolve, 700))
       ]);
 
       const data = await response.json();
 
       if (response.ok) {
+        toast.success('Search completed successfully!', { id: 'orc-search-toast' });
         setResult(data);
 
         // Update recent searches in state and localStorage
@@ -66,12 +72,12 @@ export function useBusinessSearch() {
         });
       } else {
         setError(data.error || 'Failed to search business');
-        toast.error(data.error || 'Failed to search business');
+        toast.error(data.error || 'Failed to search business', { id: 'orc-search-toast' });
       }
     } catch (err) {
       console.error('Business search failed:', err);
       setError('Network error — check your connection');
-      toast.error('Network error — check your connection');
+      toast.error('Network error — check your connection', { id: 'orc-search-toast' });
     } finally {
       setLoading(false);
     }
