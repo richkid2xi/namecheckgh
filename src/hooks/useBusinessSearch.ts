@@ -55,7 +55,17 @@ export function useBusinessSearch() {
           new Promise((resolve) => setTimeout(resolve, 700))
         ]);
 
-        const data = await response.json();
+        // Handle Vercel 504/502 Gateway Timeouts explicitly before trying to parse HTML as JSON
+        if (response.status === 504 || response.status === 502) {
+          throw new Error("Vercel Gateway Timeout (Cold Start)");
+        }
+
+        let data;
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          throw new Error("Invalid JSON response from server");
+        }
 
         if (response.ok) {
           toast.success('Search completed successfully!', { id: 'orc-search-toast' });
