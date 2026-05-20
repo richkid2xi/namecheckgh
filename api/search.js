@@ -96,6 +96,12 @@ export default async function handler(req, res) {
 
   console.log(`[NAMECHECKGH] Querying live ORC for: "${sanitizedName}"`);
 
+  // Global 8.5s timeout to prevent Vercel 504 Gateway Timeouts (max 10s)
+  const controller = new AbortController();
+  const globalTimeoutId = setTimeout(() => {
+    controller.abort();
+  }, 8500);
+
   let attempts = 0;
   const maxAttempts = 2;
   let responseData = null;
@@ -116,7 +122,8 @@ export default async function handler(req, res) {
             "Accept-Language": "en-US,en;q=0.9",
             "Connection": "keep-alive"
           },
-          timeout: 6500
+          timeout: 6500,
+          signal: controller.signal
         });
 
         const $ = cheerio.load(getResponse.data);
@@ -163,7 +170,8 @@ export default async function handler(req, res) {
             "Origin": "https://rgdonline.gegov.gov.gh",
             "Referer": "https://rgdonline.gegov.gov.gh/orc-app/"
           },
-          timeout: 6500
+          timeout: 6500,
+          signal: controller.signal
         });
 
         if (postResponse.status !== 200) {
@@ -259,6 +267,7 @@ export default async function handler(req, res) {
 
     if (results.length === 0 || hasNoDataText) {
       console.log('[NAMECHECKGH] Results found: 0');
+      clearTimeout(globalTimeoutId);
       return res.status(200).json({
         searched: sanitizedName,
         searchType: searchType,
@@ -273,6 +282,7 @@ export default async function handler(req, res) {
     }
 
     console.log(`[NAMECHECKGH] Results found: ${results.length}`);
+    clearTimeout(globalTimeoutId);
     return res.status(200).json({
       searched: sanitizedName,
       searchType: searchType,
@@ -286,14 +296,21 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
+    if (typeof globalTimeoutId !== 'undefined') {
+      clearTimeout(globalTimeoutId);
+    }
     console.error('[NAMECHECKGH] Error occurred during search:', error);
 
     const message = error.message || '';
     
     if (
+      axios.isCancel(error) ||
+      error.name === 'CanceledError' ||
+      error.name === 'AbortError' ||
       error.code === 'ECONNABORTED' || 
       error.code === 'ETIMEDOUT' ||
-      message.includes('timeout')
+      message.includes('timeout') ||
+      message.includes('canceled')
     ) {
       return res.status(503).json({
         error: "ORC registry is taking too long to respond. Please try again in a few seconds.",
