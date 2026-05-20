@@ -15,6 +15,11 @@ const client = axios.create({
 // Cache for warm serverless execution to make identical queries sub-millisecond fast!
 const searchCache = new Map();
 
+// Global token caching to bypass the 4-second initial page load on warm starts!
+let globalSessionCookie = null;
+let globalCsrfToken = null;
+let globalSessionTime = 0;
+
 export default async function handler(req, res) {
   // Set CORS and security headers immediately
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -111,45 +116,60 @@ export default async function handler(req, res) {
       try {
         attempts++;
         
-        // STEP 2 — Fetch session and CSRF token
-        const initialUrl = 'https://rgdonline.gegov.gov.gh/orc-app/';
-        const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+        // STEP 2 — Fetch session and CSRF token (or use cached versions)
+        let csrfToken = globalCsrfToken;
+        let sessionCookie = globalSessionCookie;
+        const now = Date.now();
 
-        const getResponse = await client.get(initialUrl, {
-          headers: {
-            "User-Agent": userAgent,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.9",
-            "Connection": "keep-alive"
-          },
-          timeout: 6500,
-          signal: controller.signal
-        });
+        // If no cached session, or session is older than 10 minutes (600000 ms), fetch a new one
+        if (!csrfToken || !sessionCookie || (now - globalSessionTime > 600000)) {
+          console.log('[NAMECHECKGH] Fetching new CSRF and Session tokens...');
+          const initialUrl = 'https://rgdonline.gegov.gov.gh/orc-app/';
+          const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-        const $ = cheerio.load(getResponse.data);
+          const getResponse = await client.get(initialUrl, {
+            headers: {
+              "User-Agent": userAgent,
+              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+              "Accept-Language": "en-US,en;q=0.9",
+              "Connection": "keep-alive"
+            },
+            timeout: 6500,
+            signal: controller.signal
+          });
 
-        // Look for CSRF token
-        const csrfToken = 
-          $('input[name="_csrf"]').val() ||
-          $('meta[name="_csrf"]').attr('content') ||
-          $('meta[name="csrf-token"]').attr('content');
+          const $ = cheerio.load(getResponse.data);
 
-        if (!csrfToken) {
-          throw new Error("CSRF token not found");
-        }
+          // Look for CSRF token
+          csrfToken = 
+            $('input[name="_csrf"]').val() ||
+            $('meta[name="_csrf"]').attr('content') ||
+            $('meta[name="csrf-token"]').attr('content');
 
-        // Extract JSESSIONID from cookie headers
-        const cookies = getResponse.headers['set-cookie'] || [];
-        const sessionCookie = cookies
-          .map(c => c.split(';')[0])
-          .find(c => c.startsWith('JSESSIONID'));
+          if (!csrfToken) {
+            throw new Error("CSRF token not found");
+          }
 
-        if (!sessionCookie) {
-          throw new Error("Session cookie not found");
+          // Extract JSESSIONID from cookie headers
+          const cookies = getResponse.headers['set-cookie'] || [];
+          sessionCookie = cookies
+            .map(c => c.split(';')[0])
+            .find(c => c.startsWith('JSESSIONID'));
+
+          if (!sessionCookie) {
+            throw new Error("Session cookie not found");
+          }
+
+          globalCsrfToken = csrfToken;
+          globalSessionCookie = sessionCookie;
+          globalSessionTime = now;
+        } else {
+          console.log('[NAMECHECKGH] Using globally cached CSRF and Session tokens! (Saved ~4 seconds)');
         }
 
         // STEP 3 — POST the search
         const postUrl = 'https://rgdonline.gegov.gov.gh/orc-app/search-for-name';
+        const userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
         
         const params = new URLSearchParams();
         params.append('_csrf', csrfToken);
@@ -183,6 +203,12 @@ export default async function handler(req, res) {
 
       } catch (err) {
         console.warn(`[NAMECHECKGH] Attempt ${attempts} failed:`, err.message);
+        
+        // Invalidate cached tokens if the request failed, ensuring the next attempt fetches fresh ones!
+        globalCsrfToken = null;
+        globalSessionCookie = null;
+        globalSessionTime = 0;
+
         if (attempts < maxAttempts) {
           await new Promise(r => setTimeout(r, 800));
           continue;
